@@ -101,6 +101,29 @@ T("loading the same player twice returns the same inventory", function()
 	assert(DataManager.trackedCount() == 1, "and exactly one session is tracked")
 end)
 
+T("the store is called with a colon, matching the fake's own signature", function()
+	-- The fake declares its methods with `self`, so if DataManager ever switched to
+	-- `Store.get(k)` the receiver would be nil and this would explode. It does not
+	-- protect the real adapter (only Roblox can run that), but it pins the calling
+	-- convention from the side that is testable.
+	local store = reiniciar(newStore())
+	local visto = { get = 0, update = 0 }
+	local originalGet, originalUpdate = store.get, store.update
+	store.get = function(self, key)
+		visto.get += 1
+		assert(self == store, "get must receive the store as its first argument")
+		return originalGet(self, key)
+	end
+	store.update = function(self, key, fn)
+		visto.update += 1
+		assert(self == store, "update must receive the store as its first argument")
+		assert(type(fn) == "function", "update's second argument must be the transform function")
+		return originalUpdate(self, key, fn)
+	end
+	DataManager.loadFor(103)
+	assert(visto.update >= 1, "loading must claim the record through update()")
+end)
+
 T("two players never share a record", function()
 	-- This is the test that was missing. keyFor() ignored its userId argument, so
 	-- every player wrote to ONE key — and this suite did not notice, because each

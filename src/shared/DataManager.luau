@@ -228,9 +228,16 @@ function DataManager.loadFor(userId: number): (any, string?)
 		)
 	end
 
-	local inventory, motivo = Inventory.fromSave(record and record.data, userId)
-	if motivo then
-		log(string.format("user %d: cargado con '%s'", userId, motivo))
+	-- No record at all is the normal first login, not a repair. Saying "corrupt"
+	-- there trains the reader to ignore the message that matters.
+	local inventory, motivo
+	if record == nil then
+		inventory = Inventory.new(userId)
+	else
+		inventory, motivo = Inventory.fromSave(record.data, userId)
+		if motivo then
+			log(string.format("user %d: cargado con '%s'", userId, motivo))
+		end
 	end
 
 	sessions[userId] = { inventory = inventory, lastHeartbeat = now() }

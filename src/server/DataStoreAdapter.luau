@@ -30,11 +30,16 @@ function DataStoreAdapter.new(
 		return store
 	end
 
+	-- NOTE the leading `_self`. DataManager calls these with a colon, like the
+	-- fake store in the tests does, so the receiver is the first argument. Declared
+	-- without it, `key` took the table and the caller's key string landed where
+	-- UpdateAsync expects a FUNCTION — "Unable to cast string to Function". No lint
+	-- catches this and nothing outside Roblox can run it; only a playtest did.
 	return {
-		get = function(key: string)
+		get = function(_self, key: string)
 			return obtenerStore():GetAsync(key)
 		end,
-		update = function(key: string, transform: (any) -> any)
+		update = function(_self, key: string, transform: (any) -> any)
 			-- UpdateAsync re-reads and retries internally if someone else wrote
 			-- first. That is the whole reason the lock is safe.
 			return obtenerStore():UpdateAsync(key, transform)
