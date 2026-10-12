@@ -137,10 +137,14 @@ function InventoryUI.new(
 		boton.Parent = rejilla
 		nuevaInstancia("UICorner", { CornerRadius = UDim.new(0, 5) }, nil).Parent = boton
 
-		-- No wrapping and TextScaled instead. Wrapped text breaks LONG WORDS mid-word in
-		-- a 54px slot ("POTION_H / EALTH"), which reads as broken. Scaling shrinks the
-		-- label until it fits on one line; the constraint keeps it legible at the bottom
-		-- and prevents a single-item slot from rendering a giant title.
+		-- TextScaled shrinks the label to fit the slot, which stops a long id overflowing
+		-- it. Two honest notes, both learned by looking at the rendered result:
+		--   - Roblox still WRAPS when TextScaled is on; setting TextWrapped = false does
+		--     not prevent it. That is fine here, and better than fine: what made the old
+		--     label ugly was breaking a long word mid-word ("POTION_H / EALTH"), and the
+		--     fix for that was giving it a display name with a space to break at.
+		--   - The constraint keeps the result readable, and stops a single-item slot from
+		--     rendering one enormous letter.
 		local etiqueta = nuevaInstancia("TextLabel", {
 			Name = "Label",
 			Size = UDim2.new(1, -6, 1, -18),
