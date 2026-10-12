@@ -47,7 +47,7 @@ No Studio, no dependency manager, nothing to install but the `luau` binary:
 luau tests/run.luau
 ```
 
-96 tests across 5 suites. The lint and format gates:
+103 tests across 5 suites. The lint and format gates:
 
 ```bash
 selene src/ tests/      # std = "roblox"
@@ -104,3 +104,16 @@ release, and the steal-if-stale path.
 - `[TODO]` Items have no icon field; the UI shows names.
 - `[TODO]` No licence chosen yet.
 - `[TODO]` Not measured at the 200-slot ceiling or under real concurrent load.
+
+## Bugs worth knowing about
+
+Two were found by verification rather than by reading, and both are the same shape — a check
+that silently stopped checking:
+
+- `keyFor(userId)` ignored its argument, so every player wrote to one DataStore key. The unit
+  suite could not see it (each case injected a fresh store, so nothing could collide); the
+  linter found it as an *unused parameter*.
+- `add()` passed the incoming item id to `canStack()` twice, defeating that function's own
+  id guard. Any stackable item merged into the first stackable stack it met — scrap folded
+  into a potion stack and inflated its count. The suite could not see it because every case
+  used a single item id per inventory. There is now an exhaustive item-vs-item test.
