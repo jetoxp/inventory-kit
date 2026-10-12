@@ -119,6 +119,35 @@ T("scrap merges even with no metadata at all", function()
 	assert(ok, "nothing is compared, so pieces of scrap always merge")
 end)
 
+T("matches() selects by metadata WITHOUT caring about stackability", function()
+	-- The distinction that matters: canStack answers "would these merge?", and
+	-- is always false for a non-stackable item. Selection is a different
+	-- question, and confusing the two makes swords unremovable.
+	assert(
+		not ItemDefinition.canStack(
+			"SWORD_IRON",
+			{ durability = 50 },
+			"SWORD_IRON",
+			{ durability = 50 }
+		),
+		"swords never stack"
+	)
+	assert(
+		ItemDefinition.matches("SWORD_IRON", { durability = 50 }, { durability = 50 }),
+		"but they do match themselves"
+	)
+	assert(
+		not ItemDefinition.matches("SWORD_IRON", { durability = 50 }, { durability = 90 }),
+		"and not a different one"
+	)
+	assert(ItemDefinition.matches("SWORD_IRON", { durability = 50 }, nil), "no selection means any")
+	assert(
+		not ItemDefinition.matches("SWORD_IRON", {}, { durability = 50 }),
+		"a missing key does not match"
+	)
+	assert(not ItemDefinition.matches("NO_EXISTE", nil, nil), "an unknown id never matches")
+end)
+
 T("validate() catches a broken catalogue", function()
 	-- A deliberately malformed catalogue: every one of these is a typo a real
 	-- developer makes, and each should be reported rather than crash.

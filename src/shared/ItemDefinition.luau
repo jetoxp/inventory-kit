@@ -196,6 +196,40 @@ function ItemDefinition.canStack(
 end
 
 --[[
+	SELECTION, not stacking — and the difference is not academic.
+
+	`canStack` answers "would these two MERGE?", which is always false for a
+	non-stackable item. Using it to answer "is this the stack I am looking for?"
+	makes non-stackable items unremovable: a sword can be added and then never
+	taken out again, because no metadata will ever make it "stack".
+
+	`matches` answers the other question: does this stack satisfy the caller's
+	selection? With no selection every stack of that id matches. With one, every
+	key the caller named must be present and equal on the stack. Stackability is
+	irrelevant here and deliberately so.
+]]
+function ItemDefinition.matches(
+	itemId: string,
+	stackMetadata: ItemMetadata?,
+	wantedMetadata: ItemMetadata?
+): boolean
+	if ItemDefinition.get(itemId) == nil then
+		return false
+	end
+	if wantedMetadata == nil then
+		return true -- no selection means "any stack of this item"
+	end
+
+	local stack = stackMetadata or {}
+	for key, value in pairs(wantedMetadata) do
+		if stack[key] ~= value then
+			return false
+		end
+	end
+	return true
+end
+
+--[[
 	A canonical string identifying a stack: the item id plus only the metadata
 	the definition says matters, with keys SORTED so that writing the same
 	metadata in a different order cannot produce a different key.

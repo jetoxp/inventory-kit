@@ -24,6 +24,7 @@ local function cargar(nombre, ruta)
 end
 
 cargar("ItemDefinition", "./ItemDefinitionSpec")
+cargar("Inventory", "./InventorySpec")
 
 local bien = 0
 for _, ok in ipairs(todas) do
