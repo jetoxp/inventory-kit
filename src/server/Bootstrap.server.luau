@@ -9,6 +9,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
 local kit = ReplicatedStorage:WaitForChild("InventoryKit")
 
@@ -57,8 +58,19 @@ DataManager.init({
 	sleep = task.wait,
 })
 
+-- Measures the two things a case study would otherwise have to guess at: how long a real
+-- DataStore load takes, and how big the payload actually is. os.clock() is an elapsed-time
+-- clock in Roblox, so it includes the yield inside the DataStore call.
+local function medirCarga(inv: any): (number, number)
+	local t0 = os.clock()
+	local json = HttpService:JSONEncode(inv:toSave())
+	return (os.clock() - t0) * 1000, #json
+end
+
 local function alEntrar(player: Player)
+	local t0 = os.clock()
 	local inv, motivo = DataManager.loadFor(player.UserId)
+	local msCarga = (os.clock() - t0) * 1000
 	if not inv then
 		-- Both failures end with the player out, but say which one: "another
 		-- server" is a normal state, an outage is not.
@@ -88,8 +100,16 @@ local function alEntrar(player: Player)
 		end
 		return
 	end
+	local msSerializar, bytes = medirCarga(inv)
 	print(
-		string.format("[Bootstrap] %s joined with %d slots used", player.Name, inv:getUsedSlots())
+		string.format(
+			"[Bootstrap] %s joined with %d slots used (DataStore load %.0f ms, payload %d bytes, serialise %.2f ms)",
+			player.Name,
+			inv:getUsedSlots(),
+			msCarga,
+			bytes,
+			msSerializar
+		)
 	)
 	InventoryService.sendState(player)
 end
