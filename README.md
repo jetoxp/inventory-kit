@@ -17,6 +17,32 @@ server-side validation that keeps a client from inventing items.
 plain — the case study's screenshot is what it looks like — and it exists to prove the loop,
 not to be shipped as-is.
 
+## Results
+
+Measured, not estimated — every figure here is reproducible with the command next to it.
+
+- **103 automated tests across 5 suites**, via `luau tests/run.luau`. No Studio, no dependency
+  manager, 3.9k lines of which 1.5k are tests.
+- **0 errors, 0 warnings** from `selene` (`std = "roblox"`); `stylua --check` clean.
+- A real DataStore **load of a full 200-slot inventory takes ~1.5 s** (1546 ms and 1947 ms
+  across two measured sessions), and the payload serialises to **13 KB** against DataStore's
+  4 MB per-key limit — roughly 300x of headroom at the kit's maximum size.
+- The protocol's own cost, off-engine and reproducible with `luau tests/Bench.luau`:
+  `toSave()` 0.073 ms and `fromSave()` 0.118 ms at 200 slots; 50 concurrent sessions load in
+  0.51 ms total. The transport dominates, not the logic.
+- Verified live in a Studio session, not on paper: a click-to-equip round trip, the equipped
+  slot surviving a full restart, three malformed payloads rejected with nothing changed, and
+  60 intents fired in one frame producing exactly one acceptance.
+
+**Not measured: real concurrent players.** No claim is made about production load.
+
+## Media
+
+![The inventory UI, four stacks loaded from the DataStore](media_inventory_ui.jpg)
+
+The narrative version — challenge, solution, and what it cost to get there — is the
+[case study](https://github.com/jetoxp/portfolio/tree/main/01_Roblox/2026-10-12_InventoryKit).
+
 ## Layout
 
 ```
@@ -102,8 +128,6 @@ Working and tested end to end against a real DataStore: load, claim, heartbeat, 
 release, and the steal-if-stale path.
 
 - `[TODO]` Items have no icon field; the UI shows names.
-- `[TODO]` Not measured under real concurrent load (a synthetic 50-session figure is in
-  `tests/Bench.luau`, and it is not the same claim).
 
 ## Bugs worth knowing about
 
