@@ -53,8 +53,11 @@ function InventoryUI.new(
 
 	local marco = nuevaInstancia("Frame", {
 		Name = "Panel",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -16, 0.5, 0),
+		-- Top-right, not vertically centred. A centred panel is taller than a small
+		-- viewport and its first rows render above the screen edge — measured at
+		-- AbsolutePosition.Y = -3 in Studio, which also makes them unclickable.
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0) + UDim2.fromOffset(-16, 16),
 		Size = UDim2.fromOffset(SLOT * 5 + GAP * 6 + 24, 320),
 		BackgroundColor3 = Color3.fromRGB(28, 29, 34),
 		BackgroundTransparency = 0.15,
@@ -225,6 +228,11 @@ function InventoryUI.new(
 
 		contador.Text = string.format("%d / %d   %s", view.used, view.maxSlots, view.hint)
 		marco.Visible = view.ready == true
+
+		-- Height follows the slot count: 5 per row plus the header. Fixed at 320 it
+		-- would clip a 30-slot inventory and leave dead space in a 5-slot one.
+		local filas = math.max(1, math.ceil(view.maxSlots / 5))
+		marco.Size = UDim2.fromOffset(SLOT * 5 + GAP * 6 + 24, 62 + filas * (SLOT + GAP) + 8)
 	end
 
 	return {
