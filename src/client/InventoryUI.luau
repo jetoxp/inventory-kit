@@ -47,7 +47,10 @@ function InventoryUI.new(
 		-- render loop keeps writing into a dead instance.
 		ResetOnSpawn = false,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-		IgnoreGuiInset = true,
+		-- False on purpose. `true` pins the GUI to the very top of the screen, which
+		-- puts the first row of slots UNDER Roblox's top bar: clicks there land on the
+		-- CoreGUI and the console fills with "hits CoreGUI" while the slot looks fine.
+		IgnoreGuiInset = false,
 	}, nil)
 	raiz.Parent = parent
 
