@@ -73,6 +73,15 @@ Config.MESSAGES = {
 	sessionLocked = "Your inventory is open on another server. Please rejoin in a moment.",
 	-- The load failed for any other reason (an outage, a timeout).
 	loadFailed = "We could not load your inventory. Please rejoin.",
+
+	-- Phase 5: what the UI renders. Same reason as above — a consumer's game, a
+	-- consumer's language. The view model takes these as parameters rather than
+	-- reading Config itself, so the mapping stays testable without loading it.
+	uiTitle = "Inventory",
+	uiEmpty = "empty",
+	uiEquipped = "EQUIPPED",
+	uiDrop = "x",
+	uiHint = "Click a slot to equip or unequip. Click x to drop one.",
 }
 
 -- How many items a single request may move at once. Anything larger is

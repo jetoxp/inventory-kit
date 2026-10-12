@@ -1,35 +1,47 @@
--- InventoryClient — renders nothing yet; it just holds the server's truth.
+-- InventoryClient — owns the server's truth and hands it to the UI.
 
--- Phase 5 puts the UI on top of this. The contract is already the important part:
--- the client asks, and waits, and never decides. Everything it displays arrives
--- from the server, and a client that has not received anything yet displays
--- nothing rather than guessing.
+-- The whole loop, and note who decides what: a click sends an INTENT, the server
+-- applies or refuses it, and whatever comes back is what gets rendered. The client
+-- never mutates its own copy, so the UI cannot show a state the server does not have.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local player = Players.LocalPlayer
 local Kit = ReplicatedStorage:WaitForChild("InventoryKit")
+
+local Config = require(Kit.Config)
 local Net = require(Kit.Net)
+local ViewModel = require(script.Parent.ViewModel)
+local InventoryUI = require(script.Parent.InventoryUI)
+local MESSAGES = Config.MESSAGES
 
 local uplink, downlink = Net.client()
 
--- Last known truth. Left nil until the server says something, on purpose: an
--- empty table would read as "no items" and a UI would happily render that lie.
+-- nil until the server says something, on purpose: an empty table would render as
+-- "you have nothing" and the player would believe it.
 local estado: { [string]: any }? = nil
 
-downlink.OnClientEvent:Connect(function(nuevo: { [string]: any })
-	local revisionAntes = if estado then estado.revision else -1
-	estado = nuevo
-	print(
-		string.format(
-			"[InventoryClient] state rev %d -> %d, %d slots, %d in use",
-			revisionAntes,
-			nuevo.revision,
-			nuevo.maxSlots,
-			#nuevo.slots
-		)
-	)
+local ui = InventoryUI.new(player:WaitForChild("PlayerGui"), MESSAGES, function(index: number)
+	-- Clicking the equipped slot unequips it; clicking any other equips. One control,
+	-- two meanings, decided from the last state the SERVER sent.
+	if estado ~= nil and estado.equipped == index then
+		uplink:FireServer({ action = "unequip" })
+	else
+		uplink:FireServer({ action = "equip", slot = index })
+	end
+end, function(index: number)
+	uplink:FireServer({ action = "drop", slot = index, quantity = 1 })
 end)
 
--- Ask once on join. After that the server pushes whenever it changes anything,
--- so there is nothing to poll.
+local function pintar()
+	ui.render(ViewModel.build(estado, MESSAGES))
+end
+
+downlink.OnClientEvent:Connect(function(nueva: { [string]: any })
+	estado = nueva
+	pintar()
+end)
+
+pintar() -- nothing yet: this renders the "not ready" state and hides the panel
 uplink:FireServer({ action = "requestState" })
