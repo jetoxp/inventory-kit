@@ -1,20 +1,7 @@
 --!strict
---[[
-	Config.luau — the kit's tuning knobs, in one place.
-
-	WHY THIS EXISTS
-	Every number a consumer of this kit might want to change lives here so it
-	can be changed once and picked up everywhere. Nothing else in the kit
-	hardcodes a limit.
-
-	HOW VALUES ARE TAGGED
-	  [DECIDED]      Chosen by the project owner. Do not change without asking.
-	  [PROVISIONAL]  Set to get moving; expected to change.
-	  [TODO]         NOT decided yet. Do not invent a value: ask.
-
-	WHAT THIS MODULE DOES NOT DO
-	It holds no state and requires nothing. Reading it is always safe.
-]]
+-- Config — every tunable number of the kit lives here so nothing else hardcodes a limit.
+-- Values are tagged [DECIDED] / [PROVISIONAL] / [TODO] so the owner can review my
+-- assumptions in one pass instead of auditing every number.
 
 local Config = {}
 
@@ -22,16 +9,9 @@ local Config = {}
 -- SCHEMA
 -- ============================================================
 
---[[
-	Version of the save payload written to DataStores.
-
-	[DECIDED] It ships on day one even though nothing is saved yet, because
-	retrofitting it is the expensive part. When a future phase adds a field
-	(an `equipped` slot, a durability counter), old saves still exist and must
-	still load. DataManager reads this number to decide which migration to run.
-
-	Bump it ONLY when the shape of the payload changes, never for a value tweak.
-]]
+-- schemaVersion of the save payload. Ships on day one even though nothing is saved
+-- yet, because retrofitting it is the expensive part — old saves keep existing
+-- after the shape changes. Bump ONLY when the payload's shape changes, never for a value tweak.
 Config.SCHEMA_VERSION = 1
 
 -- ============================================================
@@ -55,18 +35,9 @@ Config.ABS_MAX_SLOTS = 200
 -- [DECIDED] 60, as specified in the brief.
 Config.AUTOSAVE_INTERVAL = 60
 
---[[
-	Session locking, both halves.
-
-	LOCK_HEARTBEAT: how often the owning server refreshes its claim while the
-	player is in. Without a heartbeat a lock is just a flag, and a server crash
-	leaves the data locked forever.
-
-	LOCK_STALE_AFTER: how long a lock may go unrefreshed before another server
-	is allowed to assume the owner died and steal it. Must be comfortably
-	greater than LOCK_HEARTBEAT, or healthy sessions get stolen from.
-	[PROVISIONAL] Tuned so a dead session is reclaimed in about a minute.
-]]
+-- Session lock, both halves. HEARTBEAT is how often the owner refreshes its claim;
+-- STALE is how long a lock may go unrefreshed before another server assumes the
+-- holder died. Keep STALE comfortably above HEARTBEAT or healthy sessions get stolen.
 Config.LOCK_HEARTBEAT = 15
 Config.LOCK_STALE_AFTER = 60
 
@@ -81,13 +52,8 @@ Config.DATASTORE_RETRY_DELAY = 2
 -- SECURITY
 -- ============================================================
 
---[[
-	Minimum seconds between accepted remote requests, per player, per action.
-
-	[DECIDED IN PRINCIPLE, VALUE PROVISIONAL] "Never trust the client" also
-	means never trusting its rate. A client that spams a remote 500 times a
-	second is not a bug, it is an attack, and it costs the server real CPU.
-]]
+-- Per player, per action. "Never trust the client" includes its rate: a client
+-- spamming a remote 500x/s is not a bug, it is an attack, and it burns server CPU.
 Config.REMOTE_COOLDOWNS = {
 	move = 0.05,
 	equip = 0.25,

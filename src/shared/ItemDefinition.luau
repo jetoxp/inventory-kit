@@ -1,33 +1,17 @@
 --!strict
---[[
-	ItemDefinition.luau — what an item IS, and when two of them stack.
-
-	WHY THIS EXISTS
-	Two different jobs:
-
-	  1. Answer questions about an item kind: does it exist, is it stackable,
-	     how many fit in a slot.
-	  2. Decide whether two concrete items are THE SAME STACK — which is not
-	     the same question, and is where naive inventories go wrong.
-
-	THE RULE
-	Stacking compares only the metadata keys named in `stackableMetadata`.
-	Keys outside that list are ignored on purpose: otherwise two potions of
-	identical quality would refuse to merge just because they were looted a
-	second apart. `stackable = false` never merges, whatever the metadata.
-
-	WHY THE CATALOG IS INJECTED, NOT REQUIRED
-	`init()` receives the catalog. A consumer plugs in their own item list
-	without editing a line of kit code — that is what "reusable" means. And a
-	module that requires nothing can be executed outside Roblox, so the
-	stacking rules are covered by automated tests instead of by hope.
-	Querying before init() raises loudly rather than returning a plausible
-	false. `init` is defined AFTER `validate` because it calls it: in Luau a
-	`local function` only sees what was declared above it.
-
-	WHAT THIS MODULE DOES NOT DO
-	It reads the catalog. It never mutates it and holds no player data.
-]]
+-- ItemDefinition — what an item is, and when two of them are the same stack.
+--
+-- Two jobs that look like one. exists/stackable/maxStack is one; canStack is the
+-- other. matches() further down exists precisely because I ran them together once
+-- and made non-stackable items impossible to remove.
+--
+-- Stacking compares ONLY the keys named in stackableMetadata. Everything else in
+-- the metadata is ignored on purpose.
+--
+-- The catalogue is injected with init(), not required. That is not a style choice:
+-- it lets a consumer plug in their own items, and it lets this file run outside
+-- Roblox so the rules can be tested. Nothing here requires anything, which is also
+-- what makes loadstring(mod.Source) work when Studio serves a stale require.
 
 export type ItemDef = {
 	id: string,
@@ -44,13 +28,8 @@ local ItemDefinition = {}
 -- Injected catalog, keyed by item id. nil until init() runs.
 local catalog: { [string]: ItemDef }? = nil
 
---[[
-	Emits a message that the author should read but that must not stop anything.
-
-	`warn` is a Roblox global; it does not exist outside Roblox, and this kit is
-	meant to be runnable in a plain Luau interpreter so its rules can be tested.
-	Calling `warn` directly would work in Studio and blow up under test.
-]]
+-- warn is a Roblox global and does not exist outside Roblox. Calling it directly
+-- works in Studio and dies under test — so route it through here.
 local function log(msg: string): ()
 	if warn then
 		warn(msg)
@@ -69,17 +48,11 @@ local function requireCatalog(): { [string]: ItemDef }
 	return c
 end
 
---[[
-	Checks the injected catalog and returns findings SPLIT BY SEVERITY.
-
-	Errors are faults: data that cannot be trusted (a bad maxStack, a declared
-	id that does not match its key, a missing displayName).
-	Warnings are legal but suspicious: something that may well be intentional
-	and should be confirmed rather than blocked.
-
-	Keeping them apart matters: a single mixed list forces the reader to ignore
-	the whole output, because one deliberate choice would hide a real fault.
-]]
+-- Returns findings split by severity, and the split is the point.
+-- Errors = data that cannot be trusted, the caller decides what to do.
+-- Warnings = legal but worth confirming (an item that merges with anything might be
+-- intentional). One mixed list forces the reader to ignore all of it, because a
+-- deliberate choice then hides a real fault behind it.
 function ItemDefinition.validate(): ({ string }, { string })
 	local errores: { string } = {}
 	local avisos: { string } = {}
@@ -127,11 +100,8 @@ function ItemDefinition.validate(): ({ string }, { string })
 	return errores, avisos
 end
 
---[[
-	Wires up the catalog. Returns (errors, warnings) so the caller decides what
-	to do about errors; warnings are printed here because they are informational
-	and stopping a boot over one would be wrong.
-]]
+-- Wires the catalogue in. Warnings are printed, errors are returned — stopping a
+-- boot over a suspicious-but-legal entry would be wrong.
 function ItemDefinition.init(source: { [string]: ItemDef }): ({ string }, { string })
 	catalog = source
 	local errores, avisos = ItemDefinition.validate()
@@ -157,17 +127,10 @@ function ItemDefinition.exists(id: string): boolean
 	return requireCatalog()[id] ~= nil
 end
 
---[[
-	The heart of the kit.
-
-	Both sides must reference the SAME id (stacking across kinds is never
-	valid), the definition must be stackable, and every key named in
-	stackableMetadata must be present and equal on both sides.
-
-	Values compare with ==, so metadata values should be primitives — numbers,
-	strings, booleans. Two tables with identical contents are NOT equal in
-	Luau and would silently never stack.
-]]
+-- The heart of it. Both sides must be the same id, the definition must be
+-- stackable, and every key in stackableMetadata must be equal on both sides.
+-- Comparison is ==, so keep metadata values primitive: two tables with identical
+-- contents are NOT equal in Luau and would silently never stack.
 function ItemDefinition.canStack(
 	itemIdA: string,
 	metadataA: ItemMetadata?,
@@ -195,19 +158,13 @@ function ItemDefinition.canStack(
 	return true
 end
 
---[[
-	SELECTION, not stacking — and the difference is not academic.
-
-	`canStack` answers "would these two MERGE?", which is always false for a
-	non-stackable item. Using it to answer "is this the stack I am looking for?"
-	makes non-stackable items unremovable: a sword can be added and then never
-	taken out again, because no metadata will ever make it "stack".
-
-	`matches` answers the other question: does this stack satisfy the caller's
-	selection? With no selection every stack of that id matches. With one, every
-	key the caller named must be present and equal on the stack. Stackability is
-	irrelevant here and deliberately so.
-]]
+-- SELECTION, not stacking. Not a nitpick — this exists because of a bug.
+--
+-- canStack answers "would these merge?", which is ALWAYS false for a non-stackable
+-- item. Use it to answer "is this the stack I want?" and a sword becomes
+-- impossible to remove: it goes in and never comes out, reporting not_enough.
+--
+-- matches ignores stackability entirely. Use it for findStack / count / remove.
 function ItemDefinition.matches(
 	itemId: string,
 	stackMetadata: ItemMetadata?,
@@ -229,15 +186,9 @@ function ItemDefinition.matches(
 	return true
 end
 
---[[
-	A canonical string identifying a stack: the item id plus only the metadata
-	the definition says matters, with keys SORTED so that writing the same
-	metadata in a different order cannot produce a different key.
-
-	Inventory uses this as a lookup key, so finding an existing stack is one
-	table lookup instead of a scan. Returns nil for unknown ids, which callers
-	treat as "reject this item".
-]]
+-- A stack's identity as a string: the id plus only the metadata that matters,
+-- key-sorted so writing the same metadata in a different order cannot produce a
+-- different key. Inventory indexes on this, so a lookup is a table hit, not a scan.
 function ItemDefinition.stackKey(itemId: string, metadata: ItemMetadata?): string?
 	local def = ItemDefinition.get(itemId)
 	if not def then

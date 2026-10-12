@@ -1,45 +1,18 @@
 --!strict
---[[
-	Inventory.luau — a container of item stacks.
-
-	WHY THIS EXISTS
-	This is the kit's core. It holds stacks, enforces the catalogue's rules, and
-	answers questions. It deliberately knows nothing about Roblox: no DataStore,
-	no RemoteEvents, no UI, not even a Player. Give it an owner and it holds
-	items; that is the whole contract.
-
-	WHY THE OWNER IS GENERIC
-	A player's inventory and a chest's inventory are the same problem, so they
-	are the same class. `owner` is a Player, a Model, or nil for a throwaway
-	inventory (a shop, a loot roll, a test). Deciding whether to SAVE it is a
-	policy question and belongs to DataManager, so DataManager asks what the
-	owner is — this class never does.
-
-	WHY THE SLOTS ARE SPARSE
-	A nil hole is an empty slot. Moving a stack between slots becomes one
-	assignment instead of a shuffle, and an empty inventory costs nothing to
-	store. Slot numbers are 1-based, like every other Luau table.
-
-	WHY METADATA IS COPIED ON THE WAY IN
-	`add()` copies the metadata table before storing it. Without the copy the
-	caller keeps a reference and can mutate a stack's identity from outside,
-	which would silently break the stack keys it was indexed under.
-
-	WHY THE DEPENDENCIES ARE INJECTED
-	`init()` receives ItemDefinition and Config. A module that requires nothing
-	can run outside Roblox, which is how this class gets tested without Studio.
-	Using it before init() raises loudly instead of misbehaving quietly.
-
-	WHAT THIS MODULE DOES NOT DO
-	No persistence, no replication, no rendering. `revision` is bumped on every
-	mutation so the layers above can tell when to re-read; they poll it. There
-	are no signals here because a signal would tie the core to an engine.
-
-	ORDER NOTE: every local helper is defined before its first use, and every
-	metamethod is attached before the constructor can be called. Lua resolves
-	`local function` at the point of declaration, so a helper used above its
-	definition would be nil at runtime.
-]]
+-- Inventory — a container of stacks. Works for a player, a chest, or nothing.
+--
+-- No Roblox in here: no DataStore, no remotes, no UI, not even a Player check.
+-- That is what lets the whole class run in a plain Luau interpreter and be tested.
+--
+-- owner is Player | Model | nil. Whether it gets saved is DataManager's problem —
+-- this class never asks.
+--
+-- Slots are sparse (nil = empty) so moving a stack is one assignment.
+--
+-- Order matters in this file: helpers are declared before their first caller, and
+-- the metatable is attached before the constructor can run. A `local function` binds
+-- at its declaration line, so a helper used above its definition is nil at runtime.
+-- Been bitten by that one already.
 
 export type ItemStack = {
 	itemId: string,
@@ -69,12 +42,8 @@ local Config: any = nil
 -- Wiring
 -- ============================================================
 
---[[
-	Called once by the bootstrap, before any inventory exists.
-
-	Returns the list of errors found in the catalogue, so a broken catalogue is
-	reported by whoever is booting the server rather than by a player later.
-]]
+-- Called once by the bootstrap, before any inventory exists. Returns the
+-- catalogue errors so whoever is booting sees them, not a player later on.
 function Inventory.init(deps: Dependencies): { string }
 	assert(deps, "Inventory.init requires a dependencies table")
 	assert(deps.itemDefinition, "Inventory.init requires `itemDefinition`")
@@ -129,13 +98,8 @@ local function touch(self): ()
 	self.revision += 1
 end
 
---[[
-	A defensive copy of a stack, so callers cannot reach into the stored state
-	and mutate it. `getSlots()` and the save payload both go through here.
-
-	Metadata is copied too. A shared metadata table across two stacks would let
-	a change to one silently alter the other's stack key.
-]]
+-- Copy on the way out. A shared metadata table between two stacks means changing
+-- one silently alters the other's stack key.
 local function copyStack(stack: ItemSlot): ItemSlot
 	if not stack then
 		return nil
@@ -151,13 +115,8 @@ end
 -- Constructor
 -- ============================================================
 
---[[
-	Inventory.new(owner, maxSlots)
-
-	maxSlots is optional and falls back to Config.DEFAULT_MAX_SLOTS. It is
-	validated here rather than in setMaxSlots so an inventory can never exist in
-	a state with an impossible size.
-]]
+-- maxSlots falls back to Config.DEFAULT_MAX_SLOTS and is validated HERE, not in
+-- setMaxSlots, so an inventory can never exist at an impossible size.
 function Inventory.new(owner: Owner?, maxSlots: number?): any
 	assertReady()
 
@@ -182,12 +141,11 @@ end
 -- Reading
 -- ============================================================
 
---[[
-	The first slot whose stack would MERGE with the given item, or nil.
-
-	"Merging" is asked of ItemDefinition, never guessed here: this class does
-	not decide what makes two items the same, it just asks.
-]]
+-- First slot whose stack would merge with this item, or nil.
+--
+-- "Would merge" is asked of ItemDefinition, never guessed here — this class does
+-- not decide what makes two items the same, it asks. Note it uses matches(), not
+-- canStack(): a non-stackable item still has to be findable.
 function Inventory:findStack(itemId: string, metadata: { [string]: any }?): (number?, ItemSlot)
 	for i = 1, self.maxSlots do
 		local stack = self.slots[i]
@@ -251,20 +209,13 @@ end
 -- Adding
 -- ============================================================
 
---[[
-	Inventory:add(itemId, quantity, metadata) -> (added, reason)
-
-	Strategy, in this order, because it is what players expect:
-	  1. Top up existing stacks. Partial merges are allowed here.
-	  2. Only then open new slots.
-	  3. If the inventory fills up midway, stop and report what DID fit.
-
-	Note the last point: add() is the one operation that is deliberately NOT
-	atomic. A pickup of 30 scrap into 2 free slots should bank 20, not fail
-	entirely and leave the player with nothing.
-
-	Returns the number actually added and, on a shortfall, a reason string.
-]]
+-- add -> (added, reason)
+--
+-- Top up existing stacks first, then open new slots. If it fills up midway, stop
+-- and report what DID fit: this is the one operation that is deliberately NOT
+-- atomic. 30 scrap into 2 free slots should bank 20, not fail and leave nothing.
+--
+-- Returns the true number added, and a reason on a shortfall.
 function Inventory:add(
 	itemId: string,
 	quantity: number?,
@@ -329,16 +280,14 @@ end
 -- Removing
 -- ============================================================
 
---[[
-	Inventory:remove(itemId, quantity, metadata) -> (removed, reason)
-
-	ATOMIC on purpose, and the opposite call from add(): either the whole
-	quantity leaves or nothing does. A partial removal that reports success is
-	how duplication bugs are born — the caller believes 10 left and 3 remain.
-
-	Passing metadata removes only from stacks that would merge with it. Passing
-	nil removes from any stack of that item, in slot order.
-]]
+-- remove -> (removed, reason)
+--
+-- ATOMIC, and the exact opposite call from add(): either the whole quantity leaves
+-- or nothing does. A partial removal that reports success is how duplication bugs
+-- are born — the caller believes 10 left and 3 remain.
+--
+-- metadata removes only from stacks that match it; nil takes from any stack, in
+-- slot order.
 function Inventory:remove(
 	itemId: string,
 	quantity: number?,
@@ -389,10 +338,8 @@ end
 -- Moving
 -- ============================================================
 
---[[
-	Moves a stack to another slot. If the destination holds something, it is
-	swapped — players expect a drag onto an occupied slot to reorder, not fail.
-]]
+-- Swaps when the destination is occupied — dragging onto an occupied slot should
+-- reorder, not fail.
 function Inventory:moveSlot(from: number, to: number): (boolean, string?)
 	assertReady()
 	if type(from) ~= "number" or type(to) ~= "number" then
@@ -426,13 +373,9 @@ end
 -- Resizing
 -- ============================================================
 
---[[
-	Inventory:setMaxSlots(n) -> (ok, reason)
-
-	Growing is always fine. Shrinking only works if it does not cut off items:
-	refusing is better than silently destroying the player's things, and the
-	caller can move them first.
-]]
+-- Growing is always fine. Shrinking only if it does not cut items off: refusing
+-- is better than silently destroying someone's things, and the caller can move them
+-- first.
 function Inventory:setMaxSlots(n: number): (boolean, string?)
 	assertReady()
 	if type(n) ~= "number" or n < 1 or n % 1 ~= 0 then
@@ -459,13 +402,9 @@ end
 -- Equipping
 -- ============================================================
 
---[[
-	Marks a slot as equipped. This class only records the decision.
-
-	Materialising it — building the Roblox Tool, putting it in the character —
-	is a server-layer job, because that is where Roblox actually exists. Keeping
-	that boundary is what lets this file be tested in a terminal.
-]]
+-- Only records the decision. Building the Roblox Tool and putting it in the
+-- character is the server layer's job — keeping that boundary is what lets this
+-- file be tested in a terminal.
 function Inventory:equip(index: number): (boolean, string?)
 	assertReady()
 	if type(index) ~= "number" or self.slots[index] == nil then
@@ -523,10 +462,8 @@ end
 -- Serialisation
 -- ============================================================
 
---[[
-	The payload written to a DataStore. schemaVersion goes first so a future
-	loader reads the version before it reads anything it might not understand.
-]]
+-- schemaVersion first, so a future loader reads the version before anything it
+-- might not understand.
 function Inventory:toSave(): { [string]: any }
 	assertReady()
 	return {
@@ -538,23 +475,18 @@ function Inventory:toSave(): { [string]: any }
 	}
 end
 
---[[
-	Inventory.fromSave(payload, owner) -> (inventory, reason)
-
-	Rebuilds from a stored payload and NEVER trusts it. Every disc is a place
-	where somebody else's data can be malformed:
-
-	  - not a table            -> a fresh inventory, reason "corrupt_payload"
-	  - a FUTURE schemaVersion -> refuse, reason "future_schema". Guessing at a
-	                              shape you do not know loses items.
-	  - an older version       -> migrate (v1 is the first, nothing to do yet)
-	  - an unknown item id     -> that stack is DROPPED and counted, reason
-	                              "dropped_stacks". The catalogue is the truth;
-	                              an item that no longer exists cannot be held.
-
-	The second return value is nil on a clean load, so callers can tell a normal
-	load from a repair without inspecting the inventory.
-]]
+-- fromSave -> (inventory, reason). NEVER trust the disc.
+--
+--   not a table           -> fresh inventory, "corrupt_payload"
+--   a FUTURE schemaVersion -> refuse, "future_schema". Guessing at a shape you do
+--                            not know loses items.
+--   older version         -> migrate (v1 is the first, nothing to do yet)
+--   unknown item id       -> drop that stack, count it in "dropped_stacks:N".
+--                            The catalogue is the truth: an item that no longer
+--                            exists cannot be held.
+--
+-- reason is nil on a clean load, so a caller can spot a repair without inspecting
+-- the result. This function must never throw — it is fed data off a disc.
 function Inventory.fromSave(payload: any, owner: Owner?): (any, string?)
 	assertReady()
 

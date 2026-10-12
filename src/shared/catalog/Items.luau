@@ -1,26 +1,16 @@
 --!strict
---[[
-	Items.luau — the item catalogue. DATA, not logic.
-
-	WHY THIS EXISTS
-	Adding an item should never mean editing a system. Everything the kit needs
-	to know about an item lives in this table, so a consumer adds a sword by
-	adding a row.
-
-	HOW TO READ A ROW
-	  stackable            false -> every instance gets its own slot, always.
-	  stackableMetadata    WHICH metadata keys must match to share a stack.
-	                       Keys NOT listed here are ignored for stacking.
-
-	THE THREE SAMPLES BELOW EXIST TO EXERCISE THE RULES, not to be a game:
-	  - Potions stack by quality only, so two potions of the same quality merge
-	    even though they were rolled at different times.
-	  - Swords never stack, because durability makes each one unique.
-	  - Scrap stacks freely, because nothing about it matters.
-
-	[TODO] Item icons are deliberately absent. A real catalogue wants an
-	asset id per item and the kit does not decide that for you.
-]]
+-- The catalogue. DATA, not logic — adding an item must never mean editing a system.
+--
+--   stackable          false -> every instance gets its own slot, always.
+--   stackableMetadata  WHICH keys must match to share a stack. Keys not listed
+--                      here are ignored for stacking.
+--
+-- The three below exist to exercise the rules, not to be a game: potions stack by
+-- quality only (so two looted a second apart still merge), swords never stack
+-- (durability makes each one unique), scrap stacks freely (nothing about it matters).
+--
+-- [TODO] no icons. A real catalogue wants an asset id per item; the kit does not
+-- decide that for you.
 
 local Items = {}
 

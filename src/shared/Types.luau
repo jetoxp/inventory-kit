@@ -1,34 +1,16 @@
 --!strict
---[[
-	Types.luau — the vocabulary shared by every module in the kit.
-
-	WHY THIS EXISTS
-	The kit is meant to be dropped into other projects, so its shapes have to
-	be written down somewhere importable. Without this, every module invents
-	its own idea of what an "item" is and they stop fitting together.
-
-	WHAT THIS MODULE DOES NOT DO
-	It declares shapes only. No state, no logic, no requires.
-
-	NOTE ON `return {}`
-	A ModuleScript must return exactly one value. Returning nothing raises at
-	require time; returning nil is treated the same way by the engine. An empty
-	table is the legal way to say "this module is types only".
-]]
+-- Types — the shared vocabulary. Declarations only, no state, no requires.
+-- Each module also declares the types it uses locally: that keeps every file
+-- loadable on its own (see the note in Inventory about loadstring).
 
 -- ---------------------------------------------------------------
 -- Items
 -- ---------------------------------------------------------------
 
---[[
-	The immutable description of an item kind — "iron sword", not "this
-	particular iron sword".
-
-	stackableMetadata is the interesting field: it lists WHICH metadata keys
-	must match for two items to stack. Metadata outside this list is ignored
-	for stacking purposes, which is what lets two potions of the same quality
-	stack even though their roll timestamps differ.
-]]
+-- An item KIND, not an instance of one. stackableMetadata is the field that
+-- matters: it names which keys must match for two of these to stack. Keys not
+-- listed are ignored for stacking — otherwise two potions of equal quality would
+-- refuse to merge for differing in when they were looted.
 export type ItemDefinition = {
 	id: string,
 	displayName: string,
@@ -43,13 +25,8 @@ export type ItemDefinition = {
 -- silently never match.
 export type ItemMetadata = { [string]: any }
 
---[[
-	One stack inside an inventory. A stack is a quantity PLUS the metadata its
-	whole quantity shares.
-
-	This is the shape that gets serialised to DataStores, so it is
-	deliberately flat and primitive-only.
-]]
+-- One stack: a quantity plus the metadata its whole quantity shares.
+-- This is what gets serialised, so keep it flat — primitives only.
 export type ItemStack = {
 	itemId: string,
 	quantity: number,
@@ -60,23 +37,13 @@ export type ItemStack = {
 -- Inventory
 -- ---------------------------------------------------------------
 
---[[
-	Slots are sparse: a nil hole is an empty slot. Slot numbers are 1-based to
-	match Luau's tables, so slot 1 is the player's first slot.
-
-	Why sparse and not a dense list of Optionals: moving a stack between slots
-	becomes an assignment instead of a shuffle, and an empty inventory costs
-	nothing to store.
-]]
+-- Sparse: nil is an empty slot. Moving a stack is then one assignment instead of
+-- a shuffle, and an empty inventory costs nothing to store.
 export type ItemSlot = ItemStack?
 
---[[
-	Who an inventory belongs to. Deliberately open: a Player, a container
-	Model, or nil for a transient inventory (a shop, a loot roll, a test).
-
-	DataManager decides what to persist by inspecting this — it never asks the
-	Inventory whether it is persistant, which keeps the class free of policy.
-]]
+-- Player, Model, or nil for a throwaway (shop, loot roll, test).
+-- Whether it gets persisted is a policy call — DataManager inspects this, the
+-- Inventory never asks.
 export type InventoryOwner = Player | Model | nil
 
 -- The result of any mutating operation, so callers never have to guess
@@ -99,13 +66,8 @@ export type SavePayload = {
 	savedAt: number,
 }
 
---[[
-	The session lock record.
-
-	It is a claim, not a boolean, and that distinction is the whole point: a
-	claim carries who holds it and when they last said so, which is what makes
-	it recoverable.
-]]
+-- A claim, not a boolean. That is the whole point: it carries who holds it and
+-- when they last said so, which is what makes a dead session recoverable.
 export type SessionLock = {
 	sessionId: string,
 	placeId: number,
