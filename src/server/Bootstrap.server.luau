@@ -56,6 +56,7 @@ DataManager.init({
 	sessionId = sessionId,
 	placeId = game.PlaceId,
 	sleep = task.wait,
+	studioMode = RunService:IsStudio(),
 })
 
 -- Measures the two things a case study would otherwise have to guess at: how long a real
@@ -141,8 +142,13 @@ game:BindToClose(function()
 	-- Roblox gives about 30s. Releasing in parallel is what actually fits: one
 	-- release can retry three times with a backoff, and doing them in sequence
 	-- runs out of budget long before it runs out of players.
+	--
+	-- This used to return early in Studio, which looked tidy and was wrong: stopping a
+	-- playtest does not reliably fire PlayerRemoving, and BindToClose was the only thing
+	-- that would have released the lock. Skipping it left a claim behind, and the NEXT
+	-- Play got kicked by your own previous run. Keep it in Studio.
 	if RunService:IsStudio() then
-		return
+		warn("[Bootstrap] soltando bloqueos antes de cerrar (Studio)")
 	end
 	local pendientes = 0
 	for _, player in ipairs(Players:GetPlayers()) do

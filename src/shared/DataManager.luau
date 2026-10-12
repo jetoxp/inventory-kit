@@ -33,6 +33,9 @@ export type Deps = {
 	sleep: ((number) -> ())?,
 	sessionId: string,
 	placeId: number,
+	-- True when the caller is a Studio playtest rather than a live server.
+	-- See the steal rule in loadFor for why it matters.
+	studioMode: boolean?,
 }
 
 local DataManager = {}
@@ -45,6 +48,7 @@ local sleep: (number) -> () = function(_seconds: number) end
 
 local sessionId: string = ""
 local placeId: number = 0
+local studioMode: boolean = false
 
 -- Players we are currently responsible for. Keyed by user id, NOT by the Player
 -- object: the object is gone by the time PlayerRemoving finishes, and we still
@@ -138,6 +142,7 @@ function DataManager.init(deps: Deps): ()
 	Store = deps.store
 	sessionId = deps.sessionId
 	placeId = deps.placeId
+	studioMode = deps.studioMode == true
 	if deps.now then
 		now = deps.now
 	end
@@ -213,7 +218,15 @@ function DataManager.loadFor(userId: number): (any, string?)
 	local heldByOther = type(lock) == "table" and lock.sessionId ~= sessionId
 	if heldByOther then
 		local edad = now() - (tonumber(lock.at) or 0)
-		if edad < Config.LOCK_STALE_AFTER then
+		-- In Studio a lock left by ANOTHER STUDIO session is taken, not respected, and the
+		-- reason is the dev loop: stopping a playtest does not reliably fire PlayerRemoving,
+		-- so a release never happens and the next Play gets kicked by your own previous run
+		-- until the lock ages out. Only studio-prefixed holders are treated this way — a real
+		-- server's claim is still respected, or the safety this lock exists for would be gone.
+		local deOtraStudio = studioMode
+			and type(lock.sessionId) == "string"
+			and lock.sessionId:sub(1, 7) == "studio-"
+		if edad < Config.LOCK_STALE_AFTER and not deOtraStudio then
 			return nil, "session_locked"
 		end
 		-- Stale: the previous owner is gone. Say so — a silent steal makes a data
