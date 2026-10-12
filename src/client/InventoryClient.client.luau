@@ -21,7 +21,7 @@ downlink.OnClientEvent:Connect(function(nuevo: { [string]: any })
 	estado = nuevo
 	print(
 		string.format(
-			"[InventoryClient] estado rev %d -> %d, %d slots, %d usados",
+			"[InventoryClient] state rev %d -> %d, %d slots, %d in use",
 			revisionAntes,
 			nuevo.revision,
 			nuevo.maxSlots,

@@ -100,7 +100,7 @@ local function alSalir(player: Player)
 	end)
 	InventoryService.forgetPlayer(player.UserId)
 	if not ok then
-		warn("[Bootstrap] fallo al soltar a " .. player.Name .. ": " .. tostring(err))
+		warn("[Bootstrap] failed to release " .. player.Name .. ": " .. tostring(err))
 	end
 end
 
