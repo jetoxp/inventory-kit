@@ -148,7 +148,7 @@ game:BindToClose(function()
 	-- that would have released the lock. Skipping it left a claim behind, and the NEXT
 	-- Play got kicked by your own previous run. Keep it in Studio.
 	if RunService:IsStudio() then
-		warn("[Bootstrap] soltando bloqueos antes de cerrar (Studio)")
+		warn("[Bootstrap] releasing locks before shutdown (Studio)")
 	end
 	local pendientes = 0
 	for _, player in ipairs(Players:GetPlayers()) do
