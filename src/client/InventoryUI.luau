@@ -221,7 +221,13 @@ function InventoryUI.new(
 		for i = 1, mayorVisto do
 			local b = botones[i]
 			local v = view.slots[i]
-			if b and v then
+			if b and not v then
+				-- The inventory shrank. This button is beyond the current size, so it has
+				-- no state to render — and leaving it as it was would show a stale item in
+				-- a slot that no longer exists.
+				b.marco.Visible = false
+			elseif b and v then
+				b.marco.Visible = true
 				if v.empty then
 					b.etiqueta.Text = ""
 					b.cantidad.Text = ""

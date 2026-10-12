@@ -83,6 +83,25 @@ T("two adds of the same quality MERGE into one slot", function()
 	assert(inv:count("POTION_HEALTH", { quality = "common" }) == 5, "3 + 2 = 5")
 end)
 
+T(
+	"two adds with different rolledAt land in ONE slot — through add(), not just canStack",
+	function()
+		-- The headline feature of the whole kit, and until now it was only proven at the
+		-- predicate level. canStack() agreeing is not the same claim as add() behaving:
+		-- the inventory has to actually consult it on the way in.
+		local inv = Inventory.new()
+		inv:add("POTION_HEALTH", 2, { quality = "common", rolledAt = 1000 })
+		inv:add("POTION_HEALTH", 2, { quality = "common", rolledAt = 9999 })
+		assert(inv:getUsedSlots() == 1, "same quality must share a slot whatever the roll time")
+		assert(
+			inv.slots[1].quantity == 4,
+			"and the quantities must combine, got " .. tostring(inv.slots[1].quantity)
+		)
+		-- The stored metadata is the FIRST add's: the second merged into an existing stack.
+		assert(inv.slots[1].metadata.rolledAt == 1000, "the existing stack keeps its own metadata")
+	end
+)
+
 T("different quality does NOT merge", function()
 	local inv = Inventory.new()
 	inv:add("POTION_HEALTH", 3, { quality = "common" })
@@ -97,6 +116,47 @@ T("adding 25 potions spills across slots because maxStack is 10", function()
 	assert(inv:getUsedSlots() == 3, "10 + 10 + 5 needs three slots")
 	assert(inv.slots[1].quantity == 10, "the first stack fills to the cap")
 	assert(inv.slots[3].quantity == 5, "the remainder goes in the third")
+end)
+
+T("a different item type NEVER merges into an existing stack", function()
+	-- The bug this test exists for: add() passed the incoming id to canStack() twice, so
+	-- the id guard never fired and scrap folded itself into a potion stack, inflating the
+	-- potion count and losing the scrap. Every prior test used ONE item id per inventory,
+	-- which is exactly why none of them could see it.
+	local inv = Inventory.new()
+	inv:add("POTION_HEALTH", 1, { quality = "common" })
+	local puestos, motivo = inv:add("SCRAP_METAL", 1)
+
+	assert(puestos == 1 and motivo == nil, "the scrap must be accepted")
+	assert(inv:getUsedSlots() == 2, "and it must get its own slot, got " .. inv:getUsedSlots())
+	assert(inv.slots[1].itemId == "POTION_HEALTH", "slot 1 is still the potion")
+	assert(
+		inv.slots[1].quantity == 1,
+		"and still holds exactly ONE potion, got " .. tostring(inv.slots[1].quantity)
+	)
+	assert(inv.slots[2].itemId == "SCRAP_METAL", "slot 2 holds the scrap")
+	assert(inv:count("POTION_HEALTH") == 1, "the potion count must not move")
+	assert(inv:count("SCRAP_METAL") == 1, "and the scrap must not vanish")
+end)
+
+T("every pair of distinct catalogue items refuses to merge", function()
+	-- Exhaustive over the shipped catalogue rather than one hand-picked pair: the bug was
+	-- a general failure of the id guard, so the test should be general too.
+	local ids = { "POTION_HEALTH", "SWORD_IRON", "SCRAP_METAL" }
+	for _, a in ipairs(ids) do
+		for _, b in ipairs(ids) do
+			if a ~= b then
+				local inv = Inventory.new()
+				inv:add(a, 1, { quality = "common", durability = 1 })
+				inv:add(b, 1, { quality = "common", durability = 1 })
+				assert(inv:getUsedSlots() == 2, string.format("%s + %s must be two slots", a, b))
+				assert(
+					inv:count(a) == 1 and inv:count(b) == 1,
+					string.format("%s and %s must both survive", a, b)
+				)
+			end
+		end
+	end
 end)
 
 T("swords NEVER merge, even with identical durability", function()
@@ -280,6 +340,27 @@ end)
 -- Resizing
 -- ============================================================
 
+T("shrinking that would cut off the EQUIPPED slot is refused", function()
+	-- This test failed before the add() id-guard was fixed, and for an instructive reason:
+	-- the bug folded all three items into two slots, so shrinking to 2 "worked". It was
+	-- passing on broken behaviour. The real contract is a refusal.
+	local inv = Inventory.new(nil, 5)
+	inv:add("POTION_HEALTH", 1, { quality = "common" })
+	inv:add("SWORD_IRON", 1, { durability = 5 })
+	inv:add("SCRAP_METAL", 1)
+	assert(inv:getUsedSlots() == 3, "three items, three slots")
+	inv:equip(3)
+	assert(inv:getEquipped() == 3, "equipped in slot 3")
+
+	local ok, motivo = inv:setMaxSlots(2)
+	assert(ok == false and motivo == "slots_occupied", "cutting off slot 3 must be refused")
+	assert(inv.maxSlots == 5, "and a refused resize changes nothing")
+	assert(inv:getEquipped() == 3, "with the equipment still in place")
+
+	assert(inv:setMaxSlots(3) == true, "shrinking to exactly the last used slot is fine")
+	assert(inv:getEquipped() == 3, "and the equipped slot survives")
+end)
+
 T("growing always works; shrinking refuses when it would cut items off", function()
 	local inv = Inventory.new(nil, 3)
 	inv:add("POTION_HEALTH", 1, { quality = "common" })
@@ -402,6 +483,21 @@ T("stored metadata that is not a table is ignored, not fatal", function()
 	assert(inv:getUsedSlots() == 1, "the stack loads, without its nonsense metadata")
 	assert(inv.slots[1].metadata == nil, "and the metadata ends up empty")
 	assert(motivo == nil, "an unusable metadata field is not worth a reason of its own")
+end)
+
+T("a stored equipped index pointing at an empty slot is discarded", function()
+	-- Corrupt or stale data: the index says slot 4, slot 4 holds nothing.
+	local inv, motivo = Inventory.fromSave({
+		schemaVersion = Config.SCHEMA_VERSION,
+		maxSlots = 20,
+		slots = { { itemId = "POTION_HEALTH", quantity = 2, metadata = { quality = "common" } } },
+		equipped = 4,
+	}, nil)
+	assert(inv:getEquipped() == nil, "an equipped index with nothing under it must not survive")
+	assert(
+		motivo == "dropped_stacks:1",
+		"and it counts as something discarded, got " .. tostring(motivo)
+	)
 end)
 
 T("a stored quantity above the cap is capped, not dropped", function()

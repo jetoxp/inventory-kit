@@ -246,7 +246,15 @@ function Inventory:add(
 				break
 			end
 			local stack = self.slots[i]
-			if stack and ItemDefinition.canStack(itemId, stack.metadata, itemId, metadatos) then
+			-- stack.itemId, NOT itemId. canStack() compares two ids and returns false when
+			-- they differ, so passing the incoming id twice defeated its own guard: every
+			-- stackable item merged into the first stackable stack it met. A piece of scrap
+			-- (which compares no metadata, so it matches everything) silently folded into a
+			-- potion stack and inflated its count. Only an item-vs-item test catches this;
+			-- 96 tests using one item id per inventory never could.
+			if
+				stack and ItemDefinition.canStack(stack.itemId, stack.metadata, itemId, metadatos)
+			then
 				local hueco = def.maxStack - stack.quantity
 				if hueco > 0 then
 					local movidos = math.min(hueco, restante)
@@ -391,6 +399,11 @@ function Inventory:setMaxSlots(n: number): (boolean, string?)
 	end
 
 	self.maxSlots = n
+	-- Belt and braces, and honestly unreachable: the refusal above means every occupied
+	-- slot fits in n, and `equipped` can only ever point at an occupied slot (equip()
+	-- requires one, remove() clears the index when a stack empties). Kept because the
+	-- invariant is worth stating even when the code path that breaks it cannot happen —
+	-- but if you are reading this to understand the resize rules, the refusal is the rule.
 	if self.equipped and self.equipped > n then
 		self.equipped = nil
 	end

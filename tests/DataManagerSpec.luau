@@ -342,4 +342,29 @@ T("tick pushes dirty inventories and throttles the heartbeat", function()
 	assert(store.datos[claveDe(19)].lock.at == reloj, "with the new timestamp")
 end)
 
+T("a tick during a store outage neither crashes nor marks the data saved", function()
+	-- The dangerous failure: the tick swallows the error, calls the save a success, and
+	-- marks the inventory clean — so nothing is ever written again for that session.
+	local store = reiniciar(newStore())
+	local inv = DataManager.loadFor(20)
+	inv:add("POTION_HEALTH", 4, { quality = "common" })
+
+	store.failUpdatesLeft = 99
+	local ok, err = pcall(function()
+		DataManager.tick()
+	end)
+	assert(ok, "a failing tick must not raise: " .. tostring(err))
+	assert(inv:isDirty(), "and the inventory must STILL be dirty, or the data is lost silently")
+	assert(store.datos[claveDe(20)].data.slots[1] == nil, "nothing may have landed")
+end)
+
+T("releasing a player who was never tracked is refused, not crashed", function()
+	reiniciar(newStore())
+	local ok, motivo = DataManager.release(999)
+	assert(
+		ok == false and motivo == "not_tracked",
+		"expected not_tracked, got " .. tostring(motivo)
+	)
+end)
+
 return T.report()
