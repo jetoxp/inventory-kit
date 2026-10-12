@@ -13,6 +13,8 @@
 
 local InventoryService = {}
 
+local Players = game:GetService("Players")
+
 local Validate: any = nil
 local Config: any = nil
 local DataManager: any = nil
@@ -37,7 +39,16 @@ local function enviarEstado(player: Player): ()
 	if not inv or not downlink then
 		return
 	end
-	downlink:FireClient(player, armarEstado(inv))
+	-- Every client on this ACCOUNT, not just the one that acted. Studio's two-client mode
+	-- puts the same account in two windows, so firing only at the actor leaves the second
+	-- window showing a stale inventory until something else makes it ask. The state is
+	-- rebuilt per send anyway, so handing the same table to both is fine.
+	local estado = armarEstado(inv)
+	for _, otro in ipairs(Players:GetPlayers()) do
+		if otro.UserId == player.UserId then
+			downlink:FireClient(otro, estado)
+		end
+	end
 end
 
 -- Maps a validated intent onto the server's inventory. Everything here runs on
