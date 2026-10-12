@@ -49,6 +49,22 @@ local function alEntrar(player: Player)
 	if not inv then
 		-- Both failures end with the player out, but say which one: "another
 		-- server" is a normal state, an outage is not.
+		-- In Studio the place is usually unpublished, and an unpublished place has no
+		-- DataStore at all. Kicking there would make the kit impossible to try out, so
+		-- in Studio only we let them in without persistence and say so. Never in a live
+		-- game: playing on unpersisted data and then saving over it is how items get
+		-- duplicated.
+		if RunService:IsStudio() and motivo ~= "session_locked" then
+			warn(
+				string.format(
+					"[Bootstrap] %s entra SIN persistencia (%s)",
+					player.Name,
+					tostring(motivo)
+				)
+			)
+			return
+		end
+
 		if motivo == "session_locked" then
 			player:Kick("Tu inventario está abierto en otro servidor.")
 		else
