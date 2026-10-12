@@ -236,7 +236,7 @@ function DataManager.loadFor(userId: number): (any, string?)
 	else
 		inventory, motivo = Inventory.fromSave(record.data, userId)
 		if motivo then
-			log(string.format("user %d: cargado con '%s'", userId, motivo))
+			log(string.format("user %d: loaded with '%s'", userId, motivo))
 		end
 	end
 
