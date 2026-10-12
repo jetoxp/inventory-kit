@@ -20,6 +20,10 @@ local DataManager = require(kit.DataManager)
 
 local DataStoreAdapter = require(script.Parent.DataStoreAdapter)
 
+local Net = require(kit.Net)
+local Validate = require(kit.Validate)
+local InventoryService = require(script.Parent.InventoryService)
+
 -- In Studio there is no JobId. Without a distinct id per session every Studio
 -- tab looks like "the same server" and the lock never protects anything.
 local sessionId = if game.JobId ~= ""
@@ -30,6 +34,15 @@ local store = DataStoreAdapter.new("inventory_v" .. tostring(Config.SCHEMA_VERSI
 
 local errores =
 	Inventory.init({ itemDefinition = ItemDefinition, config = Config, catalog = Items })
+
+-- The door. Everything a client sends arrives here, and nothing gets through
+-- without passing Validate and the rate limiter first.
+InventoryService.start({
+	validate = Validate,
+	config = Config,
+	dataManager = DataManager,
+	net = Net,
+})
 if #errores > 0 then
 	-- The catalogue is broken: whoever is booting wants to know now, not later.
 	warn("[Bootstrap] errores en el catalogo: " .. table.concat(errores, "; "))
@@ -74,16 +87,17 @@ local function alEntrar(player: Player)
 		end
 		return
 	end
-	-- Fase 4 will replicate this to the client. Nothing to send yet.
 	print(
 		string.format("[Bootstrap] %s entra con %d slots usados", player.Name, inv:getUsedSlots())
 	)
+	InventoryService.sendState(player)
 end
 
 local function alSalir(player: Player)
 	local ok, err = pcall(function()
 		return DataManager.release(player.UserId)
 	end)
+	InventoryService.forgetPlayer(player.UserId)
 	if not ok then
 		warn("[Bootstrap] fallo al soltar a " .. player.Name .. ": " .. tostring(err))
 	end
