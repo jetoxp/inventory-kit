@@ -53,25 +53,6 @@ local function say(label: string, valor: string): ()
 	print(string.format("  %-56s %s", label, valor))
 end
 
-local function armarMundo(): (any, any)
-	local reloj = 1000
-	local store = fakeStore()
-	DataManager.init({
-		inventory = Inventory,
-		config = Config,
-		store = store,
-		now = function()
-			return reloj
-		end,
-		sleep = function() end,
-		sessionId = "bench",
-		placeId = 1,
-	})
-	return store, function()
-		return reloj
-	end
-end
-
 -- ============================================================
 -- 1. The ceiling: 200 slots, every one of them full
 -- ============================================================
@@ -135,7 +116,6 @@ say("count() of an item that is absent (full scan)", string.format("%.4f ms", t_
 print("\n=== 50 concurrent sessions, through DataManager ===")
 
 local N = 50
-local _, leerReloj = armarMundo()
 local reloj = 1000
 
 local store2 = fakeStore()
