@@ -104,11 +104,19 @@ function InventoryUI.new(
 	}, nil)
 	contador.Parent = cabecera
 
-	local rejilla = nuevaInstancia("Frame", {
+	-- A ScrollingFrame, not a Frame. Measured at the 200-slot ceiling: the panel came out
+	-- 2390px tall inside a 252px viewport, so everything past the fifth slot was simply
+	-- off-screen and unclickable. AutomaticCanvasSize grows the canvas to fit the grid.
+	local rejilla = nuevaInstancia("ScrollingFrame", {
 		Name = "Slots",
 		Size = UDim2.new(1, -16, 1, -70),
 		Position = UDim2.fromOffset(8, 62),
 		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.fromOffset(0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 4,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, nil)
 	rejilla.Parent = marco
 
@@ -252,10 +260,15 @@ function InventoryUI.new(
 		contador.Text = string.format("%d / %d   %s", view.used, view.maxSlots, view.hint)
 		marco.Visible = view.ready == true
 
-		-- Height follows the slot count: 5 per row plus the header. Fixed at 320 it
-		-- would clip a 30-slot inventory and leave dead space in a 5-slot one.
+		-- Height follows the slot count, capped to the window. Without the cap a 200-slot
+		-- inventory asks for a 2390px panel on a 252px viewport; the scrolling frame above
+		-- makes the overflow reachable, and this keeps the panel itself on screen.
 		local filas = math.max(1, math.ceil(view.maxSlots / 5))
-		marco.Size = UDim2.fromOffset(SLOT * 5 + GAP * 6 + 24, 62 + filas * (SLOT + GAP) + 8)
+		local deseado = 62 + filas * (SLOT + GAP) + 8
+		local camara = workspace.CurrentCamera
+		local altoVentana = if camara then camara.ViewportSize.Y else 600
+		marco.Size =
+			UDim2.fromOffset(SLOT * 5 + GAP * 6 + 24, math.min(deseado, altoVentana * 0.85))
 	end
 
 	return {
