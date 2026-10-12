@@ -113,8 +113,11 @@ function InventoryUI.new(
 		Position = UDim2.fromOffset(8, 62),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		CanvasSize = UDim2.fromOffset(0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		-- CanvasSize is set explicitly in render(), NOT with AutomaticCanvasSize.
+		-- Measured: with AutomaticCanvasSize the canvas stayed at 0 for a UIGridLayout, so
+		-- the scrollbar had no range and everything past the visible rows was unreachable —
+		-- the exact bug the ScrollingFrame was added to fix. It resizes for a UIListLayout;
+		-- for a grid, count the rows yourself.
 		ScrollBarThickness = 4,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, nil)
@@ -264,6 +267,8 @@ function InventoryUI.new(
 		-- inventory asks for a 2390px panel on a 252px viewport; the scrolling frame above
 		-- makes the overflow reachable, and this keeps the panel itself on screen.
 		local filas = math.max(1, math.ceil(view.maxSlots / 5))
+		-- The canvas has to fit every row, or the rows past the frame are unclickable.
+		rejilla.CanvasSize = UDim2.fromOffset(0, filas * (SLOT + GAP) + GAP)
 		local deseado = 62 + filas * (SLOT + GAP) + 8
 		local camara = workspace.CurrentCamera
 		local altoVentana = if camara then camara.ViewportSize.Y else 600
