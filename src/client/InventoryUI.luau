@@ -162,7 +162,7 @@ function InventoryUI.new(
 		local tirar = nuevaInstancia("TextButton", {
 			Name = "Drop",
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, 0, 0, 0),
+			Position = UDim2.fromScale(1, 0),
 			Size = UDim2.fromOffset(16, 16),
 			BackgroundColor3 = Color3.fromRGB(120, 52, 52),
 			BorderSizePixel = 0,
