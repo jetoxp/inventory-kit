@@ -102,8 +102,8 @@ Working and tested end to end against a real DataStore: load, claim, heartbeat, 
 release, and the steal-if-stale path.
 
 - `[TODO]` Items have no icon field; the UI shows names.
-- `[TODO]` No licence chosen yet.
-- `[TODO]` Not measured at the 200-slot ceiling or under real concurrent load.
+- `[TODO]` Not measured under real concurrent load (a synthetic 50-session figure is in
+  `tests/Bench.luau`, and it is not the same claim).
 
 ## Bugs worth knowing about
 
@@ -117,3 +117,9 @@ that silently stopped checking:
   id guard. Any stackable item merged into the first stackable stack it met — scrap folded
   into a potion stack and inflated its count. The suite could not see it because every case
   used a single item id per inventory. There is now an exhaustive item-vs-item test.
+
+## Licence
+
+MIT — use it, modify it, ship it in a commercial game, keep the copyright notice. Chosen
+deliberately over a copyleft licence: a copyleft one would require anyone using this to
+publish their whole game, which for Roblox projects means nobody could legally use it at all.
