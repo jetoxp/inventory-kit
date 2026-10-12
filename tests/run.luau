@@ -25,6 +25,7 @@ end
 
 cargar("ItemDefinition", "./ItemDefinitionSpec")
 cargar("Inventory", "./InventorySpec")
+cargar("DataManager", "./DataManagerSpec")
 
 local bien = 0
 for _, ok in ipairs(todas) do
