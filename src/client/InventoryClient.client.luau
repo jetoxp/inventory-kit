@@ -11,10 +11,18 @@ local player = Players.LocalPlayer
 local Kit = ReplicatedStorage:WaitForChild("InventoryKit")
 
 local Config = require(Kit.Config)
+local Items = require(Kit.catalog.Items)
 local Net = require(Kit.Net)
 local ViewModel = require(script.Parent.ViewModel)
 local InventoryUI = require(script.Parent.InventoryUI)
 local MESSAGES = Config.MESSAGES
+
+-- itemId -> the name a player should read. The catalogue is in ReplicatedStorage, so the
+-- client already has it; there is no reason to show POTION_HEALTH when it says Health Potion.
+local NOMBRES: { [string]: string } = {}
+for id, def in pairs(Items) do
+	NOMBRES[id] = def.displayName or id
+end
 
 local uplink, downlink = Net.client()
 
@@ -35,7 +43,7 @@ end, function(index: number)
 end)
 
 local function pintar()
-	ui.render(ViewModel.build(estado, MESSAGES))
+	ui.render(ViewModel.build(estado, MESSAGES, NOMBRES))
 end
 
 downlink.OnClientEvent:Connect(function(nueva: { [string]: any })

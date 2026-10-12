@@ -120,6 +120,36 @@ T("extra fields the client does not know are ignored", function()
 	assert(v.maxSlots == 1, "forward compatibility: unknown fields are not fatal")
 end)
 
+T("a display name is used when one is supplied, and the id otherwise", function()
+	-- The client passes the catalogue's displayName so a player reads "Health Potion".
+	-- Without it the raw id is the fallback, which is what keeps this file standalone.
+	local conNombres = ViewModel.build(
+		estado({ { itemId = "POTION_HEALTH", quantity = 1 } }),
+		MSG,
+		{ POTION_HEALTH = "Health Potion" }
+	)
+	assert(
+		conNombres.slots[1].label == "Health Potion",
+		"got " .. tostring(conNombres.slots[1].label)
+	)
+
+	local sinNombres = ViewModel.build(estado({ { itemId = "POTION_HEALTH", quantity = 1 } }), MSG)
+	assert(
+		sinNombres.slots[1].label == "POTION_HEALTH",
+		"no names table means the id, got " .. tostring(sinNombres.slots[1].label)
+	)
+
+	local desconocido = ViewModel.build(
+		estado({ { itemId = "ITEM_SIN_NOMBRE", quantity = 1 } }),
+		MSG,
+		{ POTION_HEALTH = "Health Potion" }
+	)
+	assert(
+		desconocido.slots[1].label == "ITEM_SIN_NOMBRE",
+		"an id missing from the table falls back to itself"
+	)
+end)
+
 T("the strings come from the arguments, not from Config", function()
 	local v = ViewModel.build(estado({ { itemId = "SCRAP_METAL", quantity = 1 } }, 1), {
 		uiTitle = "T2",

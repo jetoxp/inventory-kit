@@ -9,6 +9,10 @@
 -- It takes the message table as a parameter instead of requiring Config, so a test
 -- can pass its own strings and this file needs nothing at all.
 
+-- `names` is optional and maps itemId -> a label a human should read. The client passes
+-- the catalogue's displayName; without it the raw id is used, so this file still works
+-- standalone and the tests do not need to load the catalogue.
+
 local ViewModel = {}
 
 export type SlotView = {
@@ -28,7 +32,11 @@ export type SlotView = {
 	the sender, not about the data — a bug on the server must not crash the UI, and a
 	future server sending an extra field must not break an older client.
 ]]
-function ViewModel.build(state: any, messages: { [string]: string }): { [string]: any }
+function ViewModel.build(
+	state: any,
+	messages: { [string]: string },
+	names: { [string]: string }?
+): { [string]: any }
 	local slots = {}
 
 	-- An absent state is not an empty inventory: it is "no idea yet", and the caller
@@ -75,9 +83,9 @@ function ViewModel.build(state: any, messages: { [string]: string }): { [string]
 				empty = false,
 				itemId = stack.itemId,
 				quantity = cantidad,
-				-- The id, not a display name: the catalogue is the server's business
-				-- and the client is not shipped it. An icon would go here later.
-				label = stack.itemId,
+				-- displayName when the caller has the catalogue (the client does: it lives
+				-- in ReplicatedStorage), the raw id otherwise. An icon goes here later.
+				label = (names and names[stack.itemId]) or stack.itemId,
 				equipped = equipped == i,
 			})
 		else

@@ -137,18 +137,28 @@ function InventoryUI.new(
 		boton.Parent = rejilla
 		nuevaInstancia("UICorner", { CornerRadius = UDim.new(0, 5) }, nil).Parent = boton
 
+		-- No wrapping and TextScaled instead. Wrapped text breaks LONG WORDS mid-word in
+		-- a 54px slot ("POTION_H / EALTH"), which reads as broken. Scaling shrinks the
+		-- label until it fits on one line; the constraint keeps it legible at the bottom
+		-- and prevents a single-item slot from rendering a giant title.
 		local etiqueta = nuevaInstancia("TextLabel", {
 			Name = "Label",
 			Size = UDim2.new(1, -6, 1, -18),
 			Position = UDim2.fromOffset(3, 4),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.Gotham,
-			TextSize = 10,
-			TextWrapped = true,
+			TextWrapped = false,
+			TextScaled = true,
 			TextColor3 = Color3.fromRGB(230, 232, 238),
 			Text = "",
 		}, nil)
 		etiqueta.Parent = boton
+
+		local limite = nuevaInstancia("UITextSizeConstraint", {
+			MaxTextSize = 11,
+			MinTextSize = 6,
+		}, nil)
+		limite.Parent = etiqueta
 
 		local cantidad = nuevaInstancia("TextLabel", {
 			Name = "Quantity",
