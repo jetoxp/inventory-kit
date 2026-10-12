@@ -88,7 +88,7 @@ function InventoryService.start(deps: { [string]: any }): ()
 			-- wrong is a free hint, and a real client cannot read this anyway.
 			warn(
 				string.format(
-					"[InventoryService] %s envió algo inválido: %s",
+					"[InventoryService] %s sent an invalid payload: %s",
 					player.Name,
 					tostring(motivo)
 				)
@@ -105,7 +105,7 @@ function InventoryService.start(deps: { [string]: any }): ()
 		if not aplicado then
 			warn(
 				string.format(
-					"[InventoryService] %s: %s rechazado (%s)",
+					"[InventoryService] %s: %s refused (%s)",
 					player.Name,
 					payload.action,
 					tostring(fallo)

@@ -202,7 +202,7 @@ function DataManager.loadFor(userId: number): (any, string?)
 	if crudo ~= nil and record == nil then
 		log(
 			string.format(
-				"user %d: registro corrupto en disco (%s), empiezo de cero",
+				"user %d: corrupt record on the disc (%s), starting fresh",
 				userId,
 				typeof(crudo)
 			)
@@ -220,7 +220,7 @@ function DataManager.loadFor(userId: number): (any, string?)
 		-- problem invisible later.
 		log(
 			string.format(
-				"lock de %s en el user %d era viejo (%ds); lo tomo",
+				"lock from %s on user %d is stale (%ds), taking it over",
 				tostring(lock.sessionId),
 				userId,
 				edad
@@ -310,7 +310,7 @@ function DataManager.release(userId: number): (boolean, string?)
 	if not ok then
 		log(
 			string.format(
-				"no se pudo guardar al salir (user %d); dejo el bloqueo puesto: %s",
+				"user %d: could not save on leave, keeping the lock: %s",
 				userId,
 				tostring(err)
 			)

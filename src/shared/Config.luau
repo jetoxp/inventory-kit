@@ -61,6 +61,20 @@ Config.REMOTE_COOLDOWNS = {
 	use = 0.20,
 }
 
+-- ============================================================
+-- Text a PLAYER reads
+-- ============================================================
+
+-- The only strings a consumer's players ever see, kept here rather than baked into
+-- the code. A Spanish game should not ship English kicks, and a library has no
+-- business deciding the language. English defaults: translate them freely.
+Config.MESSAGES = {
+	-- The account is already held by another live server.
+	sessionLocked = "Your inventory is open on another server. Please rejoin in a moment.",
+	-- The load failed for any other reason (an outage, a timeout).
+	loadFailed = "We could not load your inventory. Please rejoin.",
+}
+
 -- How many items a single request may move at once. Anything larger is
 -- rejected outright rather than clamped.
 -- [PROVISIONAL]

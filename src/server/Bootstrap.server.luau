@@ -45,7 +45,7 @@ InventoryService.start({
 })
 if #errores > 0 then
 	-- The catalogue is broken: whoever is booting wants to know now, not later.
-	warn("[Bootstrap] errores en el catalogo: " .. table.concat(errores, "; "))
+	warn("[Bootstrap] catalogue errors: " .. table.concat(errores, "; "))
 end
 
 DataManager.init({
@@ -70,7 +70,7 @@ local function alEntrar(player: Player)
 		if RunService:IsStudio() and motivo ~= "session_locked" then
 			warn(
 				string.format(
-					"[Bootstrap] %s entra SIN persistencia (%s)",
+					"[Bootstrap] %s is joining WITHOUT persistence (%s)",
 					player.Name,
 					tostring(motivo)
 				)
@@ -79,16 +79,17 @@ local function alEntrar(player: Player)
 		end
 
 		if motivo == "session_locked" then
-			player:Kick("Tu inventario está abierto en otro servidor.")
+			player:Kick(Config.MESSAGES.sessionLocked)
 		else
-			player:Kick(
-				"No pude cargar tu inventario (" .. tostring(motivo) .. "). Vuelve a entrar."
-			)
+			-- The reason is an internal detail. It goes to the log, not to the player:
+			-- "store_unavailable" tells them nothing and tells an attacker something.
+			warn(string.format("[Bootstrap] %s: load failed (%s)", player.Name, tostring(motivo)))
+			player:Kick(Config.MESSAGES.loadFailed)
 		end
 		return
 	end
 	print(
-		string.format("[Bootstrap] %s entra con %d slots usados", player.Name, inv:getUsedSlots())
+		string.format("[Bootstrap] %s joined with %d slots used", player.Name, inv:getUsedSlots())
 	)
 	InventoryService.sendState(player)
 end
@@ -149,7 +150,7 @@ task.spawn(function()
 			DataManager.tick()
 		end)
 		if not ok then
-			warn("[Bootstrap] tick falló: " .. tostring(err))
+			warn("[Bootstrap] tick failed: " .. tostring(err))
 		end
 	end
 end)
