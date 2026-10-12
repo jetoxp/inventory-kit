@@ -106,7 +106,7 @@ function InventoryUI.new(
 
 	-- A ScrollingFrame, not a Frame. Measured at the 200-slot ceiling: the panel came out
 	-- 2390px tall inside a 252px viewport, so everything past the fifth slot was simply
-	-- off-screen and unclickable. AutomaticCanvasSize grows the canvas to fit the grid.
+	-- off-screen and unclickable.
 	local rejilla = nuevaInstancia("ScrollingFrame", {
 		Name = "Slots",
 		Size = UDim2.new(1, -16, 1, -70),
